@@ -35,7 +35,27 @@ public class SocketListener {
     public void disConnect(SocketIOServer server) {
         server.addDisconnectListener(client -> {
             log.info(client.getRemoteAddress() + "断开连接" + client.getSessionId());
+            // 获取session的roomId
+            String roomId = SessionRoomStore.getRoomId(client.getSessionId());
+            if (roomId == null) {
+                log.warn("session:{} 没有对应的 roomId", client.getSessionId());
+                return;
+            }
 
+            // 获取客户端信息
+            List<ClientInfo> clients = RoomInfoStore.getClients(roomId);
+            if (clients == null) {
+                log.warn("roomId {} 没有客户端信息", roomId);
+                return;
+            }
+
+            // room 中移除该客户端
+            ClientInfo clientInfo = RoomInfoStore.removeClient(roomId, client.getSessionId());
+            assert clientInfo != null;
+            clients = RoomInfoStore.getClients(roomId);
+
+            //给其他客户端发送通知
+            client.getNamespace().getRoomOperations(roomId).sendEvent("disconnected", clients, clientInfo.getAccount());
         });
     }
 
