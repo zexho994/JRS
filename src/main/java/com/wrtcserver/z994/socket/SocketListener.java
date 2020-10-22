@@ -2,6 +2,7 @@ package com.wrtcserver.z994.socket;
 
 import com.corundumstudio.socketio.SocketIOServer;
 import com.wrtcserver.z994.RoomInfoStore;
+import com.wrtcserver.z994.SessionRoomStore;
 import com.wrtcserver.z994.dto.ClientInfo;
 import com.wrtcserver.z994.dto.SignalMsg;
 import lombok.extern.log4j.Log4j2;
@@ -23,6 +24,7 @@ public class SocketListener {
     public void connect(SocketIOServer server) {
         server.addConnectListener(client -> {
             log.info(client.getRemoteAddress() + " web客户端接入 " + client.getSessionId());
+
             client.sendEvent("init-room");
         });
     }
@@ -43,11 +45,15 @@ public class SocketListener {
     public void joinRoom(SocketIOServer server) {
         server.addEventListener("join", SignalMsg.class, (socketClient, o, ackRequest) -> {
             log.info("account:{} begin to join room:{}.", o.getAccount(), o.getRoomId());
-            ClientInfo clientInfo = new ClientInfo(o.getAccount(), socketClient.getSessionId(), o.getRoomId(), false, false, false);
-            socketClient.joinRoom(o.getRoomId());
 
-            RoomInfoStore.addRoomClient(o.getRoomId(), clientInfo);
-            List<ClientInfo> roomClients = RoomInfoStore.getRoomClients(o.getRoomId());
+            // 绑定session & roomId
+            ClientInfo clientInfo = new ClientInfo(o.getAccount(), socketClient.getSessionId(), o.getRoomId(), false, false, false);
+            SessionRoomStore.put(clientInfo.getSessionId(), o.getRoomId());
+
+            // 添加客户端到房间
+            socketClient.joinRoom(o.getRoomId());
+            RoomInfoStore.addClient(o.getRoomId(), clientInfo);
+            List<ClientInfo> roomClients = RoomInfoStore.getClients(o.getRoomId());
 
             // 返回joined信息给客户端
             socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("joined", roomClients, o.getAccount());
