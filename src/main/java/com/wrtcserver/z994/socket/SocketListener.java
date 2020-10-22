@@ -1,6 +1,11 @@
 package com.wrtcserver.z994.socket;
 
+import com.corundumstudio.socketio.SocketIOClient;
 import com.corundumstudio.socketio.SocketIOServer;
+
+import com.google.gson.Gson;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import com.wrtcserver.z994.RoomInfoStore;
 import com.wrtcserver.z994.SessionRoomStore;
 import com.wrtcserver.z994.dto.ClientInfo;
@@ -60,7 +65,7 @@ public class SocketListener {
     }
 
     /**
-     * 客户端加入房间
+     * 客户端加入房间事件
      */
     public void joinRoom(SocketIOServer server) {
         server.addEventListener("join", SignalMsg.class, (socketClient, o, ackRequest) -> {
@@ -81,7 +86,8 @@ public class SocketListener {
     }
 
     /**
-     * 客户端离开房间,删除客户端在房间的记录
+     * 客户端离开房间事件
+     * 删除客户端在房间的记录
      */
     public void leaveRoom(SocketIOServer server) {
         server.addEventListener("leave", SignalMsg.class, (socketClient, o, ackRequest) -> {
@@ -92,6 +98,30 @@ public class SocketListener {
 
     public void shareRoom(SocketIOServer server){
 
+    }
+
+    public void offer(SocketIOServer server) {
+        server.addEventListener("offer", Object.class, (socketClient, s, ackRequest)
+                -> broadcastInRoom(socketClient, s, "offer", true));
+    }
+    
+    /**
+     * 房间内广播消息
+     *
+     * @param client 发消息的客户端
+     * @param msg    消息内容
+     * @param event  消息事件名
+     */
+    private void broadcastInRoom(SocketIOClient client, Object msg, String event, boolean exclusiveSelf) {
+        Gson gson = new Gson();
+        JsonParser jp = new JsonParser();
+        JsonObject jo = jp.parse(gson.toJson(msg)).getAsJsonObject();
+        String roomId = jo.get("roomId").getAsString();
+        if (exclusiveSelf) {
+            client.getNamespace().getRoomOperations(roomId).sendEvent(event, client, msg);
+        } else {
+            client.getNamespace().getRoomOperations(roomId).sendEvent(event, msg);
+        }
     }
 
 }
