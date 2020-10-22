@@ -104,7 +104,12 @@ public class SocketListener {
         server.addEventListener("offer", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "offer", true));
     }
-    
+
+    public void answer(SocketIOServer server){
+        server.addEventListener("answer", Object.class, (socketClient, s, ackRequest)
+                -> broadcastInRoom(socketClient, s, "answer",true));
+    }
+
     /**
      * 房间内广播消息
      *
