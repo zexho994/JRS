@@ -96,9 +96,6 @@ public class SocketListener {
         });
     }
 
-    public void shareRoom(SocketIOServer server){
-
-    }
 
     public void offer(SocketIOServer server) {
         server.addEventListener("offer", Object.class, (socketClient, s, ackRequest)
@@ -109,6 +106,13 @@ public class SocketListener {
         server.addEventListener("answer", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "answer",true));
     }
+
+    public void iceCandidate(SocketIOServer server){
+        server.addEventListener("__ice_candidate", Object.class, (socketClient, s, ackRequest)
+                -> broadcastInRoom(socketClient, s, "__ice_candidate", true));
+    }
+
+
 
     /**
      * 房间内广播消息
