@@ -13,11 +13,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Zexho
- * @date  2020/10/20 6:27 下午
+ * @date 2020/10/20 6:27 下午
  */
 @Slf4j
 @Service(value = "socketService")
-public class SocketServiceImpl implements ISocketService{
+public class SocketServiceImpl implements ISocketService {
 
     public static Map<UUID, String> session = new ConcurrentHashMap<>();
 
@@ -50,10 +50,14 @@ public class SocketServiceImpl implements ISocketService{
 
     @Override
     public void start() {
+        // 添加监听事件
         listener.connect(socketServer);
+        listener.answer(socketServer);
+        listener.offer(socketServer);
         listener.joinRoom(socketServer);
-        listener.disConnect(socketServer);
+        listener.iceCandidate(socketServer);
         listener.leaveRoom(socketServer);
+        listener.disConnect(socketServer);
 
         // 启动服务
         socketServer.start();
