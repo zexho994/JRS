@@ -80,7 +80,7 @@ public class SocketListener {
             RoomInfoStore.addClient(o.getRoomId(), clientInfo);
             List<ClientInfo> roomClients = RoomInfoStore.getClients(o.getRoomId());
 
-            // 返回joined信息给客户端
+            // 返回joined信息广播给房间的所有客户端
             socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("joined", roomClients, o.getAccount());
         });
     }
@@ -92,27 +92,32 @@ public class SocketListener {
     public void leaveRoom(SocketIOServer server) {
         server.addEventListener("leave", SignalMsg.class, (socketClient, o, ackRequest) -> {
             log.info("account:{} leave room :{}.", o.getAccount(), o.getRoomId());
-
         });
     }
 
-
+    /**
+     * 发送SDP事件
+     */
     public void offer(SocketIOServer server) {
+        log.info("offer event");
         server.addEventListener("offer", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "offer", true));
     }
 
+    /**
+     * 响应SDP事件
+     */
     public void answer(SocketIOServer server){
+        log.info("answer event");
         server.addEventListener("answer", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "answer",true));
     }
 
     public void iceCandidate(SocketIOServer server){
+        log.info("ice_candidate event");
         server.addEventListener("__ice_candidate", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "__ice_candidate", true));
     }
-
-
 
     /**
      * 房间内广播消息
