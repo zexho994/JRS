@@ -6,10 +6,11 @@ import com.corundumstudio.socketio.SocketIOServer;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.wrtcserver.z994.RoomInfoStore;
+import com.wrtcserver.z994.ClientInfoStore;
 import com.wrtcserver.z994.SessionRoomStore;
 import com.wrtcserver.z994.dto.ClientInfo;
 import com.wrtcserver.z994.dto.SignalMsg;
+import com.wrtcserver.z994.dto.UpdateClientStateDTO;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 
@@ -48,16 +49,16 @@ public class SocketListener {
             }
 
             // 获取客户端信息
-            List<ClientInfo> clients = RoomInfoStore.getClients(roomId);
+            List<ClientInfo> clients = ClientInfoStore.getClients(roomId);
             if (clients == null) {
                 log.warn("roomId {} 没有客户端信息", roomId);
                 return;
             }
 
             // room 中移除该客户端
-            ClientInfo clientInfo = RoomInfoStore.removeClient(roomId, client.getSessionId());
+            ClientInfo clientInfo = ClientInfoStore.removeClient(roomId, client.getSessionId());
             assert clientInfo != null;
-            clients = RoomInfoStore.getClients(roomId);
+            clients = ClientInfoStore.getClients(roomId);
 
             //给其他客户端发送通知
             client.getNamespace().getRoomOperations(roomId).sendEvent("disconnected", clients, clientInfo.getAccount());
@@ -77,8 +78,8 @@ public class SocketListener {
 
             // 添加客户端到房间
             socketClient.joinRoom(o.getRoomId());
-            RoomInfoStore.addClient(o.getRoomId(), clientInfo);
-            List<ClientInfo> roomClients = RoomInfoStore.getClients(o.getRoomId());
+            ClientInfoStore.addClient(o.getRoomId(), clientInfo);
+            List<ClientInfo> roomClients = ClientInfoStore.getClients(o.getRoomId());
 
             // 返回joined信息广播给房间的所有客户端
             socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("joined", roomClients, o.getAccount());
@@ -99,24 +100,48 @@ public class SocketListener {
      * 发送SDP事件
      */
     public void offer(SocketIOServer server) {
-        log.info("offer event");
-        server.addEventListener("offer", Object.class, (socketClient, s, ackRequest)
-                -> broadcastInRoom(socketClient, s, "offer", true));
+        server.addEventListener("offer", Object.class, (socketClient, msg, ackRequest)
+                -> broadcastInRoom(socketClient, msg, "offer", true));
     }
 
     /**
      * 响应SDP事件
      */
-    public void answer(SocketIOServer server){
+    public void answer(SocketIOServer server) {
         log.info("answer event");
         server.addEventListener("answer", Object.class, (socketClient, s, ackRequest)
-                -> broadcastInRoom(socketClient, s, "answer",true));
+                -> broadcastInRoom(socketClient, s, "answer", true));
     }
 
-    public void iceCandidate(SocketIOServer server){
+    public void iceCandidate(SocketIOServer server) {
         log.info("ice_candidate event");
         server.addEventListener("__ice_candidate", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "__ice_candidate", true));
+    }
+
+    public void updateClientState(SocketIOServer server){
+        server.addEventListener("updateClientState", UpdateClientStateDTO.class, (socketIOClient, s, ackRequest) -> {
+            log.info("updateClientState Event: {}",s);
+            ClientInfo client = ClientInfoStore.getClientByAccount(s.getTargetAccount());
+            if(client==null){
+                log.warn("UpdateClientStateEvent account is error, event:{}",s);
+            }
+            switch (s.getType()){
+                case "screenMute":
+                    client.setScreenMute(s.getValue());
+                    break;
+                case "videoMute":
+                    client.setVideoMute(s.getValue());
+                    break;
+                case "audioMute":
+                    client.setAudioMute(s.getValue());
+                    break;
+                default:
+                    log.warn("UpdateClientStateEvent type is error, event:{}",s);
+            }
+            ClientInfoStore.setClientByAccount(s.getTargetAccount(), client);
+            broadcastInRoom(socketIOClient, s, "screenMuteSwitch", false);
+        });
     }
 
     /**
@@ -131,6 +156,7 @@ public class SocketListener {
         JsonParser jp = new JsonParser();
         JsonObject jo = jp.parse(gson.toJson(msg)).getAsJsonObject();
         String roomId = jo.get("roomId").getAsString();
+        log.info("Room " + roomId + "发送 " + event + " 广播消息 to " + client.getNamespace());
         if (exclusiveSelf) {
             client.getNamespace().getRoomOperations(roomId).sendEvent(event, client, msg);
         } else {

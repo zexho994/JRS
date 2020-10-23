@@ -15,11 +15,12 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 @Slf4j
 @Component
-public class RoomInfoStore {
+public class ClientInfoStore {
 
-    private static final Map<String, LinkedList<ClientInfo>> ROOM_CLIENT = new ConcurrentHashMap<>();
+    private static final Map<String, LinkedList<ClientInfo>> ROOM_CLIENT = new ConcurrentHashMap<>(16);
+    private static final Map<String, LinkedList<ClientInfo>> ACCOUNT_CLIENT = new ConcurrentHashMap<>(16);
 
-    private RoomInfoStore() {
+    private ClientInfoStore() {
     }
 
     /**
@@ -66,4 +67,12 @@ public class RoomInfoStore {
         return null;
     }
 
+    public static ClientInfo getClientByAccount(String account){
+
+        return null;
+    }
+
+    public static void setClientByAccount(String account,ClientInfo clientInfo){
+
+    }
 }
