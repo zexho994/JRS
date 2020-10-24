@@ -108,13 +108,11 @@ public class SocketListener {
      * 响应SDP事件
      */
     public void answer(SocketIOServer server) {
-        log.info("answer event");
         server.addEventListener("answer", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "answer", true));
     }
 
     public void iceCandidate(SocketIOServer server) {
-        log.info("ice_candidate event");
         server.addEventListener("__ice_candidate", Object.class, (socketClient, s, ackRequest)
                 -> broadcastInRoom(socketClient, s, "__ice_candidate", true));
     }
@@ -156,6 +154,7 @@ public class SocketListener {
         JsonParser jp = new JsonParser();
         JsonObject jo = jp.parse(gson.toJson(msg)).getAsJsonObject();
         String roomId = jo.get("roomId").getAsString();
+        System.out.println(client.toString());
         log.info("Room " + roomId + "发送 " + event + " 广播消息 to " + client.getNamespace());
         if (exclusiveSelf) {
             client.getNamespace().getRoomOperations(roomId).sendEvent(event, client, msg);

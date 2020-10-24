@@ -57,6 +57,7 @@ public class ClientInfoStore {
             return null;
         }
 
+        // todo 存在线程安全：clientInfos
         List<ClientInfo> clientInfos = ROOM_CLIENT.get(roomId);
         for (int i = 0; i < clientInfos.size(); i++) {
             if (clientInfos.get(i).getSessionId().equals(sessionId)) {
