@@ -1,7 +1,12 @@
 package com.wrtcserver.z994;
 
+import ch.qos.logback.core.net.server.Client;
+import com.corundumstudio.socketio.SocketIOClient;
+import com.corundumstudio.socketio.SocketIOServer;
 import com.wrtcserver.z994.dto.ClientInfo;
+import jodd.cli.Cli;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -18,22 +23,9 @@ import java.util.concurrent.ConcurrentHashMap;
 public class ClientInfoStore {
 
     private static final Map<String, LinkedList<ClientInfo>> ROOM_CLIENT = new ConcurrentHashMap<>(16);
-    private static final Map<String, LinkedList<ClientInfo>> ACCOUNT_CLIENT = new ConcurrentHashMap<>(16);
+    private static final Map<String, SocketIOClient> ACCOUNT_CLIENT = new ConcurrentHashMap<>(16);
 
     private ClientInfoStore() {
-    }
-
-    /**
-     * 添加房间客户端
-     */
-    public static void addClient(String roomId, ClientInfo client) {
-        if (ROOM_CLIENT.containsKey(roomId)) {
-            ROOM_CLIENT.get(roomId).add(client);
-            return;
-        }
-        LinkedList<ClientInfo> clientInfos = new LinkedList<>();
-        clientInfos.add(client);
-        ROOM_CLIENT.put(roomId, clientInfos);
     }
 
     /**
@@ -46,13 +38,36 @@ public class ClientInfoStore {
         return ROOM_CLIENT.get(roomId);
     }
 
+    public static SocketIOClient getClientByAccount(String account) {
+        SocketIOClient clientInfo = ACCOUNT_CLIENT.get(account);
+        assert clientInfo != null;
+        return clientInfo;
+    }
+
+    /**
+     * 添加房间客户端
+     */
+    public static void addRoomIdAndClient(String roomId, ClientInfo client) {
+        if (ROOM_CLIENT.containsKey(roomId)) {
+            ROOM_CLIENT.get(roomId).add(client);
+            return;
+        }
+        LinkedList<ClientInfo> clientInfos = new LinkedList<>();
+        clientInfos.add(client);
+        ROOM_CLIENT.put(roomId, clientInfos);
+    }
+
+    public static void addAccountAndClientInfo(String account, SocketIOClient socketClient) {
+        ACCOUNT_CLIENT.put(account, socketClient);
+    }
+
     /**
      * 移除房间里session对应的client
      *
      * @param roomId    房间id
      * @param sessionId 会话id
      */
-    public static ClientInfo removeClient(String roomId, UUID sessionId) {
+    public static ClientInfo removeClientByRoomId(String roomId, UUID sessionId) {
         if (!ROOM_CLIENT.containsKey(roomId)) {
             return null;
         }
@@ -68,12 +83,11 @@ public class ClientInfoStore {
         return null;
     }
 
-    public static ClientInfo getClientByAccount(String account){
-
-        return null;
+    public static SocketIOClient removeClientByAccount(String account) {
+        return ACCOUNT_CLIENT.remove(account);
     }
 
-    public static void setClientByAccount(String account,ClientInfo clientInfo){
+    public static void setClientByAccount(String account, ClientInfo clientInfo) {
 
     }
 }

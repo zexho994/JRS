@@ -15,6 +15,7 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 
 /**
  * @author Zexho
@@ -23,6 +24,8 @@ import java.util.List;
 @Log4j2
 @Component
 public class SocketListener {
+    private static final Gson GSON = new Gson();
+    private static final JsonParser JSON_PARSER = new JsonParser();
 
     /**
      * 连接事件
@@ -56,10 +59,14 @@ public class SocketListener {
             }
 
             // room 中移除该客户端
-            ClientInfo clientInfo = ClientInfoStore.removeClient(roomId, client.getSessionId());
+            ClientInfo clientInfo = ClientInfoStore.removeClientByRoomId(roomId, client.getSessionId());
             assert clientInfo != null;
-            clients = ClientInfoStore.getClients(roomId);
 
+            // 移除account和seesion信息
+            ClientInfoStore.removeClientByAccount(clientInfo.getAccount());
+
+            clients = ClientInfoStore.getClients(roomId);
+            client.leaveRoom(roomId);
             //给其他客户端发送通知
             client.getNamespace().getRoomOperations(roomId).sendEvent("disconnected", clients, clientInfo.getAccount());
         });
@@ -78,11 +85,25 @@ public class SocketListener {
 
             // 添加客户端到房间
             socketClient.joinRoom(o.getRoomId());
-            ClientInfoStore.addClient(o.getRoomId(), clientInfo);
+            ClientInfoStore.addRoomIdAndClient(o.getRoomId(), clientInfo);
             List<ClientInfo> roomClients = ClientInfoStore.getClients(o.getRoomId());
+
+            // 保存account和socketClient
+            ClientInfoStore.addAccountAndClientInfo(o.getAccount(), socketClient);
 
             // 返回joined信息广播给房间的所有客户端
             socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("joined", roomClients, o.getAccount());
+        });
+    }
+
+    /**
+     * 屏幕共享事件
+     * 一个房间发起屏幕共享，将消息发送到该房间所有client
+     */
+    public void screenShare(SocketIOServer server) {
+        server.addEventListener("screenShare", SignalMsg.class, (socketClient, o, ackRequest) -> {
+            log.info("account:{} share the screen in room {}", o.getAccount(), o.getRoomId());
+            socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("screenShared", o.getAccount());
         });
     }
 
@@ -97,48 +118,43 @@ public class SocketListener {
     }
 
     /**
-     * 发送SDP事件
+     * 接收offer消息
+     * 然后将offer信息转发给指定的客户端
      */
     public void offer(SocketIOServer server) {
-        server.addEventListener("offer", Object.class, (socketClient, msg, ackRequest)
-                -> broadcastInRoom(socketClient, msg, "offer", true));
+        server.addEventListener("offer", Object.class, (socketClient, msg, ackRequest) -> {
+            // 从参数中获取source
+            JsonObject jo = JSON_PARSER.parse(GSON.toJson(msg)).getAsJsonObject();
+            String dest = jo.get("dest").getAsString();
+            assert dest != null;
+            // 发送给单独服务器
+            ClientInfoStore.getClientByAccount(dest).sendEvent("offer", msg);
+        });
     }
 
     /**
-     * 响应SDP事件
+     * 接收answer消息
+     * 然后将answer信息转发给指定的客户端
      */
     public void answer(SocketIOServer server) {
-        server.addEventListener("answer", Object.class, (socketClient, s, ackRequest)
-                -> broadcastInRoom(socketClient, s, "answer", true));
+        server.addEventListener("answer", Object.class, (socketClient, msg, ackRequest) -> {
+            // 从参数中获取source
+            JsonObject jo = JSON_PARSER.parse(GSON.toJson(msg)).getAsJsonObject();
+            String dest = jo.get("dest").getAsString();
+            assert dest != null;
+            // 发送给单独服务器
+            ClientInfoStore.getClientByAccount(dest).sendEvent("answer", msg);
+        });
     }
 
     public void iceCandidate(SocketIOServer server) {
-        server.addEventListener("__ice_candidate", Object.class, (socketClient, s, ackRequest)
-                -> broadcastInRoom(socketClient, s, "__ice_candidate", true));
-    }
-
-    public void updateClientState(SocketIOServer server){
-        server.addEventListener("updateClientState", UpdateClientStateDTO.class, (socketIOClient, s, ackRequest) -> {
-            log.info("updateClientState Event: {}",s);
-            ClientInfo client = ClientInfoStore.getClientByAccount(s.getTargetAccount());
-            if(client==null){
-                log.warn("UpdateClientStateEvent account is error, event:{}",s);
-            }
-            switch (s.getType()){
-                case "screenMute":
-                    client.setScreenMute(s.getValue());
-                    break;
-                case "videoMute":
-                    client.setVideoMute(s.getValue());
-                    break;
-                case "audioMute":
-                    client.setAudioMute(s.getValue());
-                    break;
-                default:
-                    log.warn("UpdateClientStateEvent type is error, event:{}",s);
-            }
-            ClientInfoStore.setClientByAccount(s.getTargetAccount(), client);
-            broadcastInRoom(socketIOClient, s, "screenMuteSwitch", false);
+        server.addEventListener("ice_candidate", Object.class, (socketClient, msg, ackRequest) -> {
+            // 从参数中获取source
+            JsonObject jo = JSON_PARSER.parse(GSON.toJson(msg)).getAsJsonObject();
+            String dest = jo.get("dest").getAsString();
+            assert dest != null;
+            // 发送给单独服务器
+            ClientInfoStore.getClientByAccount(dest).sendEvent("ice_candidate", msg);
         });
     }
 
@@ -153,13 +169,11 @@ public class SocketListener {
         Gson gson = new Gson();
         JsonParser jp = new JsonParser();
         JsonObject jo = jp.parse(gson.toJson(msg)).getAsJsonObject();
-        String roomId = jo.get("roomId").getAsString();
-        System.out.println(client.toString());
-        log.info("Room " + roomId + "发送 " + event + " 广播消息 to " + client.getNamespace());
+        log.info("account " + jo.get("source") + "发送 " + event + " 广播消息 to room " + jo.get("roomId").getAsString());
         if (exclusiveSelf) {
-            client.getNamespace().getRoomOperations(roomId).sendEvent(event, client, msg);
+            client.getNamespace().getRoomOperations(jo.get("roomId").getAsString()).sendEvent(event, client, msg);
         } else {
-            client.getNamespace().getRoomOperations(roomId).sendEvent(event, msg);
+            client.getNamespace().getRoomOperations(jo.get("roomId").getAsString()).sendEvent(event, msg);
         }
     }
 
