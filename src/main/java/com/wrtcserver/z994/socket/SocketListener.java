@@ -11,7 +11,6 @@ import com.wrtcserver.z994.SessionRoomStore;
 import com.wrtcserver.z994.dto.ClientInfo;
 import com.wrtcserver.z994.dto.SignalMsg;
 import lombok.extern.log4j.Log4j2;
-import org.apache.logging.log4j.util.Strings;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -91,7 +90,7 @@ public class SocketListener {
             ClientInfoStore.addAccountAndClientInfo(o.getAccount(), socketClient);
 
             // 返回joined信息广播给房间的所有客户端
-            socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("joined", roomClients, o.getAccount());
+            socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("joined", roomClients, clientInfo);
         });
     }
 
@@ -106,12 +105,12 @@ public class SocketListener {
     }
 
     public void avShareToAccount(SocketIOServer server) {
-        server.addEventListener("avShare", Object.class, (socketClient, msg, ackRequest) -> {
+        server.addEventListener("avShareToAccount", Object.class, (socketClient, msg, ackRequest) -> {
             JsonObject jo = JSON_PARSER.parse(GSON.toJson(msg)).getAsJsonObject();
 
             // 发送端的account
             String source = jo.get("source").getAsString();
-            if (Strings.isBlank(source)) {
+            if (source == null || "".equals(source)) {
                 log.warn("source为空,sessionID = {}", socketClient.getSessionId());
             }
 
@@ -123,7 +122,7 @@ public class SocketListener {
             }
 
             log.info("account:{} share the av to dest {}", source, dest);
-            socketClient.sendEvent("avShared",source);
+            socketClient.sendEvent("avShared", source);
         });
     }
 
@@ -160,6 +159,7 @@ public class SocketListener {
             assert dest != null;
             // 发送给单独服务器
             ClientInfoStore.getClientByAccount(dest).sendEvent("offer", msg);
+            log.info("account:{} send the offer to  {}", dest, jo.get("source").getAsString());
         });
     }
 
@@ -175,6 +175,7 @@ public class SocketListener {
             assert dest != null;
             // 发送给单独服务器
             ClientInfoStore.getClientByAccount(dest).sendEvent("answer", msg);
+            log.info("account:{} send the answer to  {}", dest, jo.get("source").getAsString());
         });
     }
 
@@ -186,6 +187,7 @@ public class SocketListener {
             assert dest != null;
             // 发送给单独服务器
             ClientInfoStore.getClientByAccount(dest).sendEvent("ice_candidate", msg);
+            log.info("account:{} send the ice candidate to  {}", dest, jo.get("source").getAsString());
         });
     }
 
