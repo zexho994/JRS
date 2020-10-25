@@ -53,6 +53,7 @@ public class SocketServiceImpl implements ISocketService {
         // 添加监听事件
         listener.connect(socketServer);
         listener.avShare(socketServer);
+        listener.avShareToAccount(socketServer);
         listener.screenShare(socketServer);
         listener.answer(socketServer);
         listener.offer(socketServer);

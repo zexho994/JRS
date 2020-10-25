@@ -10,12 +10,11 @@ import com.wrtcserver.z994.ClientInfoStore;
 import com.wrtcserver.z994.SessionRoomStore;
 import com.wrtcserver.z994.dto.ClientInfo;
 import com.wrtcserver.z994.dto.SignalMsg;
-import com.wrtcserver.z994.dto.UpdateClientStateDTO;
 import lombok.extern.log4j.Log4j2;
+import org.apache.logging.log4j.util.Strings;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.UUID;
 
 /**
  * @author Zexho
@@ -99,10 +98,32 @@ public class SocketListener {
     /**
      * 音视频共享消息
      */
-    public void avShare(SocketIOServer server){
+    public void avShare(SocketIOServer server) {
         server.addEventListener("avShare", SignalMsg.class, (socketClient, o, ackRequest) -> {
             log.info("account:{} share the av in room {}", o.getAccount(), o.getRoomId());
             socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("avShared", o.getAccount());
+        });
+    }
+
+    public void avShareToAccount(SocketIOServer server) {
+        server.addEventListener("avShare", Object.class, (socketClient, msg, ackRequest) -> {
+            JsonObject jo = JSON_PARSER.parse(GSON.toJson(msg)).getAsJsonObject();
+
+            // 发送端的account
+            String source = jo.get("source").getAsString();
+            if (Strings.isBlank(source)) {
+                log.warn("source为空,sessionID = {}", socketClient.getSessionId());
+            }
+
+            // 目标account
+            String dest = jo.get("dest").getAsString();
+            SocketIOClient clientByAccount = ClientInfoStore.getClientByAccount(dest);
+            if (clientByAccount == null) {
+                log.warn("source{}发送请求给空的 dest", source);
+            }
+
+            log.info("account:{} share the av to dest {}", source, dest);
+            socketClient.sendEvent("avShared",source);
         });
     }
 
