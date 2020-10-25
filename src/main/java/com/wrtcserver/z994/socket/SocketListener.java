@@ -97,6 +97,16 @@ public class SocketListener {
     }
 
     /**
+     * 音视频共享消息
+     */
+    public void avShare(SocketIOServer server){
+        server.addEventListener("avShare", SignalMsg.class, (socketClient, o, ackRequest) -> {
+            log.info("account:{} share the av in room {}", o.getAccount(), o.getRoomId());
+            socketClient.getNamespace().getRoomOperations(o.getRoomId()).sendEvent("avShared", o.getAccount());
+        });
+    }
+
+    /**
      * 屏幕共享事件
      * 一个房间发起屏幕共享，将消息发送到该房间所有client
      */
