@@ -116,13 +116,31 @@ public class SocketListener {
 
             // 目标account
             String dest = jo.get("dest").getAsString();
-            SocketIOClient clientByAccount = ClientInfoStore.getClientByAccount(dest);
-            if (clientByAccount == null) {
-                log.warn("source{}发送请求给空的 dest", source);
-            }
+            SocketIOClient client = ClientInfoStore.getClientByAccount(dest);
+            assert client != null;
 
             log.info("account:{} share the av to dest {}", source, dest);
-            socketClient.sendEvent("avShared", source);
+            client.sendEvent("avShared", source);
+        });
+    }
+
+    public void screenShareToAccount(SocketIOServer server){
+        server.addEventListener("screenShareToAccount", Object.class, (socketClient, msg, ackRequest) -> {
+            JsonObject jo = JSON_PARSER.parse(GSON.toJson(msg)).getAsJsonObject();
+
+            // 发送端的account
+            String source = jo.get("source").getAsString();
+            if (source == null || "".equals(source)) {
+                log.warn("source为空,sessionID = {}", socketClient.getSessionId());
+            }
+
+            // 目标account
+            String dest = jo.get("dest").getAsString();
+            SocketIOClient client = ClientInfoStore.getClientByAccount(dest);
+            assert client != null;
+
+            log.info("account:{} share the av to dest {}", source, dest);
+            client.sendEvent("screenShared", source);
         });
     }
 
@@ -161,6 +179,14 @@ public class SocketListener {
             ClientInfoStore.getClientByAccount(dest).sendEvent("offer", msg);
             log.info("account:{} send the offer to  {}", dest, jo.get("source").getAsString());
         });
+    }
+
+    /**
+     * 接收广播类型的offer
+     */
+    public void offers(SocketIOServer server) {
+        server.addEventListener("offers", Object.class, (socketClient, msg, ackRequest)
+                -> broadcastInRoom(socketClient, msg, "offer", true));
     }
 
     /**

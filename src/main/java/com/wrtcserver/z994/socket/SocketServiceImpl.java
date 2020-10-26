@@ -48,15 +48,20 @@ public class SocketServiceImpl implements ISocketService {
         stop();
     }
 
+    /**
+     * 监听事件处理在 {@link SocketListener} 里面
+     */
     @Override
     public void start() {
         // 添加监听事件
         listener.connect(socketServer);
         listener.avShare(socketServer);
         listener.avShareToAccount(socketServer);
+        listener.screenShareToAccount(socketServer);
         listener.screenShare(socketServer);
         listener.answer(socketServer);
         listener.offer(socketServer);
+        listener.offers(socketServer);
         listener.joinRoom(socketServer);
         listener.iceCandidate(socketServer);
         listener.leaveRoom(socketServer);
