@@ -65,6 +65,7 @@ public class SocketServiceImpl implements ISocketService {
         listener.joinRoom(socketServer);
         listener.iceCandidate(socketServer);
         listener.leaveRoom(socketServer);
+        listener.closeShare(socketServer);
         listener.disConnect(socketServer);
 
         // 启动服务
