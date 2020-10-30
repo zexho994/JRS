@@ -1,12 +1,8 @@
 package com.wrtcserver.z994;
 
-import ch.qos.logback.core.net.server.Client;
 import com.corundumstudio.socketio.SocketIOClient;
-import com.corundumstudio.socketio.SocketIOServer;
 import com.wrtcserver.z994.dto.ClientInfo;
-import jodd.cli.Cli;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.stereotype.Component;
 
 import java.util.*;
@@ -24,9 +20,6 @@ public class ClientInfoStore {
 
     private static final Map<String, LinkedList<ClientInfo>> ROOM_CLIENT = new ConcurrentHashMap<>(16);
     private static final Map<String, SocketIOClient> ACCOUNT_CLIENT = new ConcurrentHashMap<>(16);
-
-    private ClientInfoStore() {
-    }
 
     /**
      * 获取房间客户端
@@ -63,31 +56,35 @@ public class ClientInfoStore {
 
     /**
      * 移除房间里session对应的client
-     *
-     * @param roomId    房间id
+     *  @param roomId    房间id
      * @param sessionId 会话id
      */
-    public static ClientInfo removeClientByRoomId(String roomId, UUID sessionId) {
+    public static void removeClientByRoomId(String roomId, UUID sessionId) {
         if (!ROOM_CLIENT.containsKey(roomId)) {
-            return null;
+            return;
         }
 
         // todo 存在线程安全：clientInfos
         List<ClientInfo> clientInfos = ROOM_CLIENT.get(roomId);
         for (int i = 0; i < clientInfos.size(); i++) {
             if (clientInfos.get(i).getSessionId().equals(sessionId)) {
-                return clientInfos.remove(i);
+                clientInfos.remove(i);
+                return;
             }
         }
 
-        return null;
     }
 
-    public static SocketIOClient removeClientByAccount(String account) {
-        return ACCOUNT_CLIENT.remove(account);
+    /**
+     * 删除账号和socketIOClient绑定数据
+     *
+     * @param account 要删除的socketIOClient account
+     */
+    public static void removeClientByAccount(String account, UUID sessionId) {
+        SocketIOClient socketClient = ACCOUNT_CLIENT.get(account);
+        if (socketClient.equals(sessionId)) {
+            ACCOUNT_CLIENT.remove(account);
+        }
     }
 
-    public static void setClientByAccount(String account, ClientInfo clientInfo) {
-
-    }
 }
